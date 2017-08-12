@@ -153,6 +153,18 @@ func (auth *Authorization) Login(w http.ResponseWriter, r *http.Request, id, nam
 			tx.Rollback()
 			return errors.Wrap(err, "could not create user id")
 		}
+
+		var count int
+		if err := tx.Model(&User{}).Count(&count).Error; err != nil {
+			tx.Rollback()
+			return errors.Wrap(err, "could not count users")
+		}
+		if count <= 1 { // add first user to super user group
+			if err := tx.Model(&userID.User).Association("Groups").Append(auth.superUserGroup).Error; err != nil {
+				tx.Rollback()
+				return errors.Wrap(err, "could not add user to super user group")
+			}
+		}
 	} else if query.Error != nil {
 		tx.Rollback()
 		return errors.Wrap(query.Error, "could not load user")
