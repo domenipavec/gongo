@@ -15,6 +15,7 @@ type Authorization struct {
 	db    *gorm.DB
 	store sessions.Store
 
+	loadedFromDb   bool
 	permissions    map[string]*Permission
 	superUserGroup *Group
 }
@@ -29,6 +30,19 @@ func (auth *Authorization) Configure(DB *gorm.DB, store sessions.Store) error {
 	auth.db = DB
 	auth.store = store
 
+	return nil
+}
+
+func (auth *Authorization) Resources() []interface{} {
+	return []interface{}{
+		&UserID{},
+		&User{},
+		&Group{},
+		&Permission{},
+	}
+}
+
+func (auth *Authorization) loadFromDb() error {
 	permissions := []*Permission{}
 	if err := auth.db.Find(&permissions).Error; err != nil {
 		return errors.Wrap(err, "could not load permissions")
@@ -50,19 +64,18 @@ func (auth *Authorization) Configure(DB *gorm.DB, store sessions.Store) error {
 		return errors.Wrap(query.Error, "could not load super user group")
 	}
 
+	auth.loadedFromDb = true
+
 	return nil
 }
 
-func (auth *Authorization) Resources() []interface{} {
-	return []interface{}{
-		&UserID{},
-		&User{},
-		&Group{},
-		&Permission{},
-	}
-}
-
 func (auth *Authorization) AddPermission(code, name string) error {
+	if !auth.loadedFromDb {
+		if err := auth.loadFromDb(); err != nil {
+			return errors.Wrap(err, "could not load from db")
+		}
+	}
+
 	if _, ok := auth.permissions[code]; !ok {
 		permission := &Permission{
 			Code: code,
