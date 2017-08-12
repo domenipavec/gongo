@@ -222,6 +222,7 @@ func (auth *Authentication) ConfigureGothRoutes(router chi.Router) {
 		})
 	})
 
+	// TODO: redirect back on login or logout
 	router.Route("/{provider}", func(router chi.Router) {
 		router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			if gothUser, err := gothic.CompleteUserAuth(w, r); err == nil {
@@ -240,7 +241,12 @@ func (auth *Authentication) ConfigureGothRoutes(router chi.Router) {
 		})
 
 		router.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
+			// TODO: general /auth/logout that auto determines provider
 			gothic.Logout(w, r)
+			err := auth.authorization.Logout(w, r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			http.Redirect(w, r, "/", http.StatusFound)
 		})
 	})

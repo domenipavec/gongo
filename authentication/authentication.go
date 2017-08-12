@@ -13,6 +13,7 @@ type Authentication struct {
 
 type Authorization interface {
 	Login(w http.ResponseWriter, r *http.Request, id, name, email, avatarURL string) error
+	Logout(w http.ResponseWriter, r *http.Request) error
 }
 
 func New() *Authentication {

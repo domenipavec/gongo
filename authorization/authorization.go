@@ -202,3 +202,22 @@ func (auth *Authorization) Login(w http.ResponseWriter, r *http.Request, id, nam
 
 	return nil
 }
+
+func (auth *Authorization) Logout(w http.ResponseWriter, r *http.Request) error {
+	session, err := auth.store.Get(r, "authorization")
+	if err != nil {
+		return errors.Wrap(err, "could not get session store")
+	}
+
+	for key := range session.Values {
+		delete(session.Values, key)
+	}
+	session.Options.MaxAge = -1
+
+	err = session.Save(r, w)
+	if err != nil {
+		return errors.Wrap(err, "could not delete session")
+	}
+
+	return nil
+}
