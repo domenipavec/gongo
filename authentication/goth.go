@@ -48,6 +48,7 @@ import (
 	"github.com/markbates/goth/providers/xero"
 	"github.com/markbates/goth/providers/yahoo"
 	"github.com/markbates/goth/providers/yammer"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
@@ -203,14 +204,13 @@ func (auth *Authentication) ConfigureGothRoutes(router chi.Router) {
 		return r.Context().Value(gothStateKey).(string)
 	}
 
-	// TODO: use render for error pages
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			state := r.URL.Query().Get("state")
 			if len(state) == 0 {
 				randomState, err := getRandomString(stateTokenLength)
 				if err != nil {
-					http.Error(w, fmt.Sprintf("could not generate random state: %v", err), http.StatusInternalServerError)
+					auth.render.Error(w, r, errors.Wrap(err, "could not generate random state"))
 					return
 				}
 
@@ -235,7 +235,8 @@ func (auth *Authentication) ConfigureGothRoutes(router chi.Router) {
 		router.Get("/callback", func(w http.ResponseWriter, r *http.Request) {
 			gothUser, err := gothic.CompleteUserAuth(w, r)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				auth.render.Error(w, r, err)
+				return
 			}
 			auth.loginGoth(w, r, gothUser)
 		})
@@ -245,7 +246,8 @@ func (auth *Authentication) ConfigureGothRoutes(router chi.Router) {
 			gothic.Logout(w, r)
 			err := auth.authorization.Logout(w, r)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				auth.render.Error(w, r, err)
+				return
 			}
 			http.Redirect(w, r, "/", http.StatusFound)
 		})
@@ -257,7 +259,7 @@ func (auth *Authentication) loginGoth(w http.ResponseWriter, r *http.Request, go
 
 	err := auth.authorization.Login(w, r, id, gothUser.Name, gothUser.Email, gothUser.AvatarURL)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		auth.render.Error(w, r, err)
 		return
 	}
 

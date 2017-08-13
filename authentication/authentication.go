@@ -9,6 +9,7 @@ import (
 
 type Authentication struct {
 	authorization gongo.Authorization
+	render        gongo.Render
 
 	appURL string
 }
@@ -31,6 +32,7 @@ func (auth *Authentication) ServeMux() http.Handler {
 
 func (auth *Authentication) Configure(app gongo.App) error {
 	auth.authorization = app.Authorization
+	auth.render = app.Render
 	auth.ConfigureGoth(app.Store, auth.appURL)
 
 	return nil

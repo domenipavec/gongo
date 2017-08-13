@@ -13,8 +13,9 @@ import (
 )
 
 type Authorization struct {
-	db    *gorm.DB
-	store sessions.Store
+	db     *gorm.DB
+	store  sessions.Store
+	render gongo.Render
 
 	loadedFromDb   bool
 	permissions    map[string]*Permission
@@ -30,6 +31,7 @@ func New() *Authorization {
 func (auth *Authorization) Configure(app gongo.App) error {
 	auth.db = app.DB
 	auth.store = app.Store
+	auth.render = app.Render
 
 	app.Render.AddContextFunc(func(r *http.Request, ctx gongo.Context) {
 		if r.Context().Value("user") != nil {
@@ -129,8 +131,7 @@ func (auth *Authorization) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := auth.store.Get(r, "authorization")
 		if err != nil {
-			// TODO: render error
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			auth.render.Error(w, r, err)
 			return
 		}
 
@@ -140,7 +141,7 @@ func (auth *Authorization) Middleware(next http.Handler) http.Handler {
 				delete(session.Values, "userid")
 				err = session.Save(r, w)
 				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
+					auth.render.Error(w, r, err)
 					return
 				}
 			} else {
