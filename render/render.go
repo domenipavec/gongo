@@ -105,6 +105,7 @@ func (r *Render) Error(w http.ResponseWriter, req *http.Request, err error) {
 
 	w.WriteHeader(http.StatusInternalServerError)
 	r.Template(w, req, "error.html", gongo.Context{
-		"msg": msg,
+		"title": "Server Error",
+		"msg":   msg,
 	})
 }
