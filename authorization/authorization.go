@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/sessions"
 	"github.com/jinzhu/gorm"
+	"github.com/matematik7/gongo"
 	"github.com/pkg/errors"
 	"github.com/qor/roles"
 )
@@ -26,20 +27,28 @@ func New() *Authorization {
 	}
 }
 
-func (auth *Authorization) Configure(DB *gorm.DB, store sessions.Store) error {
-	auth.db = DB
-	auth.store = store
+func (auth *Authorization) Configure(app gongo.App) error {
+	auth.db = app.DB
+	auth.store = app.Store
 
 	return nil
 }
 
-func (auth *Authorization) Resources() []interface{} {
+func (auth Authorization) Resources() []interface{} {
 	return []interface{}{
 		&UserID{},
 		&User{},
 		&Group{},
 		&Permission{},
 	}
+}
+
+func (auth Authorization) ServeMux() http.Handler {
+	return nil
+}
+
+func (auth Authorization) Name() string {
+	return "Authorization"
 }
 
 func (auth *Authorization) loadFromDb() error {

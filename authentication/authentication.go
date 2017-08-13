@@ -4,25 +4,24 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi"
-	"github.com/gorilla/sessions"
+	"github.com/matematik7/gongo"
 )
 
 type Authentication struct {
-	authorization Authorization
+	authorization gongo.Authorization
+
+	appURL string
 }
 
-type Authorization interface {
-	Login(w http.ResponseWriter, r *http.Request, id, name, email, avatarURL string) error
-	Logout(w http.ResponseWriter, r *http.Request) error
-}
-
-func New() *Authentication {
-	auth := &Authentication{}
+func New(appURL string) *Authentication {
+	auth := &Authentication{
+		appURL: appURL,
+	}
 
 	return auth
 }
 
-func (auth *Authentication) ServeMux() *chi.Mux {
+func (auth *Authentication) ServeMux() http.Handler {
 	router := chi.NewRouter()
 
 	auth.ConfigureGothRoutes(router)
@@ -30,9 +29,17 @@ func (auth *Authentication) ServeMux() *chi.Mux {
 	return router
 }
 
-func (auth *Authentication) Configure(store sessions.Store, authorization Authorization, appURL string) error {
-	auth.authorization = authorization
-	auth.ConfigureGoth(store, appURL)
+func (auth *Authentication) Configure(app gongo.App) error {
+	auth.authorization = app.Authorization
+	auth.ConfigureGoth(app.Store, auth.appURL)
 
 	return nil
+}
+
+func (auth Authentication) Resources() []interface{} {
+	return nil
+}
+
+func (auth Authentication) Name() string {
+	return "Authentication"
 }

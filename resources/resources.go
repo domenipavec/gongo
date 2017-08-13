@@ -4,39 +4,48 @@ import (
 	"net/http"
 
 	"github.com/jinzhu/gorm"
+	"github.com/matematik7/gongo"
 	"github.com/pkg/errors"
 	"github.com/qor/admin"
 	"github.com/qor/qor"
 	"github.com/qor/roles"
 )
 
-type PermissionManager interface {
-	AddPermission(code, name string) error
-}
-
 type Resources struct {
-	db                *gorm.DB
-	permissionManager PermissionManager
+	db            *gorm.DB
+	authorization gongo.Authorization
 
 	admin *admin.Admin
+
+	prefix string
 }
 
-func New() *Resources {
-	return &Resources{}
+func New(prefix string) *Resources {
+	return &Resources{
+		prefix: prefix,
+	}
 }
 
-func (r *Resources) Configure(DB *gorm.DB, permissionManager PermissionManager) error {
-	r.db = DB
-	r.permissionManager = permissionManager
+func (r *Resources) Configure(app gongo.App) error {
+	r.db = app.DB
+	r.authorization = app.Authorization
 
-	r.admin = admin.New(&qor.Config{DB: DB})
+	r.admin = admin.New(&qor.Config{DB: r.db})
 	r.admin.SetAuth(&QorAuth{})
 
 	return nil
 }
 
-func (r *Resources) ServeMux(prefix string) http.Handler {
-	return r.admin.NewServeMux("/admin")
+func (r *Resources) ServeMux() http.Handler {
+	return r.admin.NewServeMux(r.prefix)
+}
+
+func (r Resources) Resources() []interface{} {
+	return nil
+}
+
+func (r Resources) Name() string {
+	return "Resources"
 }
 
 func (r *Resources) Register(group string, models ...interface{}) error {
@@ -55,16 +64,16 @@ func (r *Resources) Register(group string, models ...interface{}) error {
 		updatePermissions[i] = "update_" + name
 		deletePermissions[i] = "delete_" + name
 
-		if err := r.permissionManager.AddPermission(createPermissions[i], "Can create "+name); err != nil {
+		if err := r.authorization.AddPermission(createPermissions[i], "Can create "+name); err != nil {
 			return errors.Wrap(err, "could not add create permission")
 		}
-		if err := r.permissionManager.AddPermission(readPermissions[i], "Can read "+name); err != nil {
+		if err := r.authorization.AddPermission(readPermissions[i], "Can read "+name); err != nil {
 			return errors.Wrap(err, "could not add read permission")
 		}
-		if err := r.permissionManager.AddPermission(updatePermissions[i], "Can update "+name); err != nil {
+		if err := r.authorization.AddPermission(updatePermissions[i], "Can update "+name); err != nil {
 			return errors.Wrap(err, "could not add update permission")
 		}
-		if err := r.permissionManager.AddPermission(deletePermissions[i], "Can delete "+name); err != nil {
+		if err := r.authorization.AddPermission(deletePermissions[i], "Can delete "+name); err != nil {
 			return errors.Wrap(err, "could not add delete permission")
 		}
 	}
