@@ -10,6 +10,7 @@ type App struct {
 	Authentication Authentication
 	Authorization  Authorization
 	DB             *gorm.DB
+	Render         Render
 	Resources      Resources
 	Store          sessions.Store
 	Controllers    []Controller

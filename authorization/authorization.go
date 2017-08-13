@@ -31,6 +31,12 @@ func (auth *Authorization) Configure(app gongo.App) error {
 	auth.db = app.DB
 	auth.store = app.Store
 
+	app.Render.AddContextFunc(func(r *http.Request, ctx gongo.Context) {
+		if r.Context().Value("user") != nil {
+			ctx["user"] = r.Context().Value("user").(User)
+		}
+	})
+
 	return nil
 }
 
