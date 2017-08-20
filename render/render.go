@@ -7,15 +7,22 @@ import (
 	"os"
 
 	"github.com/flosch/pongo2"
-	"github.com/matematik7/gongo"
 	"github.com/pkg/errors"
 )
 
-type templateLoader struct {
-	templateSources []gongo.Templates
+type Templates interface {
+	Open(name string) (http.File, error)
 }
 
-func (tl *templateLoader) Add(t gongo.Templates) {
+type Context map[string]interface{}
+
+type ContextFunc func(r *http.Request, ctx Context)
+
+type templateLoader struct {
+	templateSources []Templates
+}
+
+func (tl *templateLoader) Add(t Templates) {
 	tl.templateSources = append(tl.templateSources, t)
 }
 
@@ -44,7 +51,7 @@ type Render struct {
 
 	templateSet  *pongo2.TemplateSet
 	loader       *templateLoader
-	contextFuncs []gongo.ContextFunc
+	contextFuncs []ContextFunc
 }
 
 type Request struct {
@@ -62,7 +69,7 @@ func New(isProd bool) *Render {
 
 	r.templateSet.Debug = !isProd
 
-	r.AddContextFunc(func(r *http.Request, ctx gongo.Context) {
+	r.AddContextFunc(func(r *http.Request, ctx Context) {
 		ctx["request"] = Request{
 			Method: r.Method,
 			Path:   r.URL.Path,
@@ -72,15 +79,15 @@ func New(isProd bool) *Render {
 	return r
 }
 
-func (r *Render) AddTemplates(t gongo.Templates) {
+func (r *Render) AddTemplates(t Templates) {
 	r.loader.Add(t)
 }
 
-func (r *Render) AddContextFunc(f gongo.ContextFunc) {
+func (r *Render) AddContextFunc(f ContextFunc) {
 	r.contextFuncs = append(r.contextFuncs, f)
 }
 
-func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string, ctx gongo.Context) {
+func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string, ctx Context) {
 	for _, cf := range r.contextFuncs {
 		cf(req, ctx)
 	}
@@ -104,7 +111,7 @@ func (r *Render) Error(w http.ResponseWriter, req *http.Request, err error) {
 	}
 
 	w.WriteHeader(http.StatusInternalServerError)
-	r.Template(w, req, "error.html", gongo.Context{
+	r.Template(w, req, "error.html", Context{
 		"title": "Server Error",
 		"msg":   msg,
 	})

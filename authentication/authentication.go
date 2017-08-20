@@ -4,12 +4,15 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi"
+	"github.com/gorilla/sessions"
 	"github.com/matematik7/gongo"
+	"github.com/matematik7/gongo/authorization"
+	"github.com/matematik7/gongo/render"
 )
 
 type Authentication struct {
-	authorization gongo.Authorization
-	render        gongo.Render
+	authorization *authorization.Authorization
+	render        *render.Render
 
 	appURL string
 }
@@ -31,17 +34,9 @@ func (auth *Authentication) ServeMux() http.Handler {
 }
 
 func (auth *Authentication) Configure(app gongo.App) error {
-	auth.authorization = app.Authorization
-	auth.render = app.Render
-	auth.ConfigureGoth(app.Store, auth.appURL)
+	auth.authorization = app["Authorization"].(*authorization.Authorization)
+	auth.render = app["Render"].(*render.Render)
+	auth.ConfigureGoth(app["Store"].(sessions.Store), auth.appURL)
 
 	return nil
-}
-
-func (auth Authentication) Resources() []interface{} {
-	return nil
-}
-
-func (auth Authentication) Name() string {
-	return "Authentication"
 }

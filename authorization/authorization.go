@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/jinzhu/gorm"
 	"github.com/matematik7/gongo"
+	"github.com/matematik7/gongo/render"
 	"github.com/pkg/errors"
 	"github.com/qor/roles"
 )
@@ -15,7 +16,7 @@ import (
 type Authorization struct {
 	db     *gorm.DB
 	store  sessions.Store
-	render gongo.Render
+	render *render.Render
 
 	loadedFromDb   bool
 	permissions    map[string]*Permission
@@ -29,15 +30,37 @@ func New() *Authorization {
 }
 
 func (auth *Authorization) Configure(app gongo.App) error {
-	auth.db = app.DB
-	auth.store = app.Store
-	auth.render = app.Render
+	auth.db = app["DB"].(*gorm.DB)
+	auth.store = app["Store"].(sessions.Store)
+	auth.render = app["Render"].(*render.Render)
 
-	app.Render.AddContextFunc(func(r *http.Request, ctx gongo.Context) {
+	auth.render.AddContextFunc(func(r *http.Request, ctx render.Context) {
 		if r.Context().Value("user") != nil {
 			ctx["user"] = r.Context().Value("user").(User)
 		}
 	})
+
+	for _, itf := range app {
+		if resourcer, ok := itf.(gongo.Resourcer); ok {
+			models := resourcer.Resources()
+			for _, model := range models {
+				name := auth.db.NewScope(model).TableName()
+
+				if err := auth.AddPermission("create_"+name, "Can create "+name); err != nil {
+					return errors.Wrap(err, "could not add create permission")
+				}
+				if err := auth.AddPermission("read_"+name, "Can read "+name); err != nil {
+					return errors.Wrap(err, "could not add read permission")
+				}
+				if err := auth.AddPermission("update_"+name, "Can update "+name); err != nil {
+					return errors.Wrap(err, "could not add update permission")
+				}
+				if err := auth.AddPermission("delete_"+name, "Can delete "+name); err != nil {
+					return errors.Wrap(err, "could not add delete permission")
+				}
+			}
+		}
+	}
 
 	return nil
 }
@@ -49,14 +72,6 @@ func (auth Authorization) Resources() []interface{} {
 		&Group{},
 		&Permission{},
 	}
-}
-
-func (auth Authorization) ServeMux() http.Handler {
-	return nil
-}
-
-func (auth Authorization) Name() string {
-	return "Authorization"
 }
 
 func (auth *Authorization) loadFromDb() error {
@@ -118,7 +133,7 @@ func (auth *Authorization) AddPermission(code, name string) error {
 		}
 	}
 
-	// this is for qor admin permission handling
+	// TODO: this should be part of admin
 	roles.Register(code, func(r *http.Request, userInt interface{}) bool {
 		user := userInt.(User)
 		return user.HasPermissions(code)
