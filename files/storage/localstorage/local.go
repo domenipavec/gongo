@@ -2,6 +2,7 @@ package localstorage
 
 import (
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -60,6 +61,20 @@ func (ls *LocalStorage) Delete(name string) error {
 	}
 
 	return nil
+}
+
+func (ls *LocalStorage) List(prefix string) ([]string, error) {
+	files, err := ioutil.ReadDir(path.Join(ls.folder, prefix))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read dir")
+	}
+
+	results := make([]string, len(files))
+	for i, file := range files {
+		results[i] = path.Join(ls.folder, prefix, file.Name())
+	}
+
+	return results, nil
 }
 
 func (ls *LocalStorage) ServeMux() http.Handler {

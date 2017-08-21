@@ -28,6 +28,10 @@ func (ims *InMemoryStorage) URL(name string) (string, error) {
 	return ims.urlPrefix + "/" + name, nil
 }
 
+func (ims *InMemoryStorage) List(prefix string) ([]string, error) {
+	return nil, errors.New("Not Implemented")
+}
+
 func (ims *InMemoryStorage) Save(name string, f io.Reader) error {
 	data, err := ioutil.ReadAll(f)
 	if err != nil {

@@ -82,3 +82,30 @@ func (s *S3Storage) Delete(name string) error {
 
 	return nil
 }
+
+func (s *S3Storage) List(prefix string) ([]string, error) {
+	results := []string{}
+
+	err := s.client.ListObjectsV2Pages(&s3.ListObjectsV2Input{
+		Bucket:    &s.bucket,
+		Delimiter: aws.String("/"),
+		Prefix:    &prefix,
+	}, func(output *s3.ListObjectsV2Output, lastPage bool) bool {
+		for _, cp := range output.CommonPrefixes {
+			if *cp.Prefix != prefix {
+				results = append(results, *cp.Prefix)
+			}
+		}
+		for _, object := range output.Contents {
+			if *object.Key != prefix {
+				results = append(results, *object.Key)
+			}
+		}
+		return true
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list objects")
+	}
+
+	return results, nil
+}
