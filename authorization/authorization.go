@@ -14,6 +14,8 @@ import (
 )
 
 type Authorization struct {
+	OnNewUser gongo.Callback
+
 	db     *gorm.DB
 	store  sessions.Store
 	render *render.Render
@@ -195,6 +197,12 @@ func (auth *Authorization) Login(w http.ResponseWriter, r *http.Request, id, nam
 				tx.Rollback()
 				return errors.Wrap(err, "could not add user to super user group")
 			}
+		}
+
+		ctx := context.WithValue(context.WithValue(r.Context(), "DB", tx), "user", userID.User)
+		if err := auth.OnNewUser.Call(ctx); err != nil {
+			tx.Rollback()
+			return errors.Wrap(err, "OnNewUser callback failed")
 		}
 	} else if query.Error != nil {
 		tx.Rollback()
