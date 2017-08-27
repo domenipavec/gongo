@@ -76,6 +76,15 @@ func (auth Authorization) Resources() []interface{} {
 	}
 }
 
+func (auth Authorization) LoggerFields(ctx context.Context) map[string]interface{} {
+	if ctx.Value("user") != nil {
+		return map[string]interface{}{
+			"UserID": ctx.Value("user").(User).ID,
+		}
+	}
+	return nil
+}
+
 func (auth *Authorization) loadFromDb() error {
 	permissions := []*Permission{}
 	if err := auth.db.Find(&permissions).Error; err != nil {

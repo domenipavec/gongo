@@ -1,14 +1,17 @@
 package render
 
 import (
+	"context"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/flosch/pongo2"
+	"github.com/go-chi/chi/middleware"
+	"github.com/matematik7/gongo"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type Templates interface {
@@ -47,8 +50,15 @@ func (tl templateLoader) Get(path string) (io.Reader, error) {
 	return nil, errors.Errorf("template %s not found", path)
 }
 
+type FieldsProvider interface {
+	LoggerFields(context.Context) map[string]interface{}
+}
+
 type Render struct {
 	isProd bool
+
+	log             *logrus.Logger
+	fieldsProviders []FieldsProvider
 
 	templateSet  *pongo2.TemplateSet
 	loader       *templateLoader
@@ -80,6 +90,18 @@ func New(isProd bool) *Render {
 	return r
 }
 
+func (r *Render) Configure(app gongo.App) error {
+	r.log = app["Log"].(*logrus.Logger)
+
+	for _, component := range app {
+		if fieldsProvider, ok := component.(FieldsProvider); ok {
+			r.fieldsProviders = append(r.fieldsProviders, fieldsProvider)
+		}
+	}
+
+	return nil
+}
+
 func (r *Render) AddTemplates(t Templates) {
 	r.loader.Add(t)
 }
@@ -109,7 +131,20 @@ func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string,
 
 func (r *Render) Error(w http.ResponseWriter, req *http.Request, err error) {
 	msg := err.Error()
-	log.Println(err)
+
+	fields := logrus.Fields{
+		"RequestId": middleware.GetReqID(req.Context()),
+		"URL":       req.URL.String(),
+	}
+	// TODO: separate this to logger package and use fields from main.go
+	for _, fieldsProvider := range r.fieldsProviders {
+		for k, v := range fieldsProvider.LoggerFields(req.Context()) {
+			fields[k] = v
+		}
+	}
+
+	r.log.WithFields(fields).Error(msg)
+
 	if r.isProd {
 		msg = "Sorry, something went wrong."
 	}
