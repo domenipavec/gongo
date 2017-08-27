@@ -12,6 +12,7 @@ type Resourcer interface {
 	Resources() []interface{}
 }
 
+// TODO: change this to slice so init order is determined, get name with reflection
 type App map[string]interface{}
 
 func (app App) Configure() error {
