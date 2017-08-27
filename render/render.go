@@ -9,6 +9,7 @@ import (
 
 	"github.com/flosch/pongo2"
 	"github.com/go-chi/chi/middleware"
+	"github.com/gorilla/sessions"
 	"github.com/matematik7/gongo"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -59,6 +60,7 @@ type Render struct {
 
 	log             *logrus.Logger
 	fieldsProviders []FieldsProvider
+	store           sessions.Store
 
 	templateSet  *pongo2.TemplateSet
 	loader       *templateLoader
@@ -80,10 +82,10 @@ func New(isProd bool) *Render {
 
 	r.templateSet.Debug = !isProd
 
-	r.AddContextFunc(func(r *http.Request, ctx Context) {
+	r.AddContextFunc(func(req *http.Request, ctx Context) {
 		ctx["request"] = Request{
-			Method: r.Method,
-			Path:   r.URL.Path,
+			Method: req.Method,
+			Path:   req.URL.Path,
 		}
 	})
 
@@ -99,6 +101,8 @@ func (r *Render) Configure(app gongo.App) error {
 		}
 	}
 
+	r.store = app["Store"].(sessions.Store)
+
 	return nil
 }
 
@@ -110,6 +114,21 @@ func (r *Render) AddContextFunc(f ContextFunc) {
 	r.contextFuncs = append(r.contextFuncs, f)
 }
 
+func (r *Render) AddFlash(w http.ResponseWriter, req *http.Request, flash interface{}) error {
+	session, err := r.store.Get(req, "render")
+	if err != nil {
+		return errors.Wrap(err, "could not get store")
+	}
+
+	session.AddFlash(flash)
+
+	if err := session.Save(req, w); err != nil {
+		return errors.Wrap(err, "could not save session")
+	}
+
+	return nil
+}
+
 func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string, ctx Context) {
 	if strings.HasSuffix(name, ".html") {
 		w.Header().Set("Content-Type", "text/html")
@@ -117,6 +136,19 @@ func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string,
 	for _, cf := range r.contextFuncs {
 		cf(req, ctx)
 	}
+
+	session, err := r.store.Get(req, "render")
+	if err != nil {
+		r.Error(w, req, err)
+		return
+	}
+	ctx["flashes"] = session.Flashes()
+	err = session.Save(req, w)
+	if err != nil {
+		r.Error(w, req, err)
+		return
+	}
+
 	t, err := r.templateSet.FromCache(name)
 	if err != nil {
 		r.Error(w, req, err)
