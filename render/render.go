@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/flosch/pongo2"
 	"github.com/pkg/errors"
@@ -88,6 +89,9 @@ func (r *Render) AddContextFunc(f ContextFunc) {
 }
 
 func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string, ctx Context) {
+	if strings.HasSuffix(name, ".html") {
+		w.Header().Set("Content-Type", "text/html")
+	}
 	for _, cf := range r.contextFuncs {
 		cf(req, ctx)
 	}
