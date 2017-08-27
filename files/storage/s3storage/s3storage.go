@@ -59,6 +59,7 @@ func (s *S3Storage) URL(name string) (string, error) {
 }
 
 func (s *S3Storage) Save(name string, input io.Reader) error {
+	// TODO: set content type and download filename
 	_, err := s.uploader.Upload(&s3manager.UploadInput{
 		Bucket: &s.bucket,
 		Key:    &name,
