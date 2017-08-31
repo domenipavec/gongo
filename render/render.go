@@ -129,7 +129,7 @@ func (r *Render) AddFlash(w http.ResponseWriter, req *http.Request, flash interf
 	return nil
 }
 
-func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string, ctx Context) {
+func (r *Render) renderTemplate(w http.ResponseWriter, req *http.Request, name string, ctx Context) error {
 	if strings.HasSuffix(name, ".html") {
 		w.Header().Set("Content-Type", "text/html")
 	}
@@ -139,25 +139,30 @@ func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string,
 
 	session, err := r.store.Get(req, "render")
 	if err != nil {
-		r.Error(w, req, err)
-		return
+		return errors.Wrap(err, "could not get render store")
 	}
 	ctx["flashes"] = session.Flashes()
 	err = session.Save(req, w)
 	if err != nil {
-		r.Error(w, req, err)
-		return
+		return errors.Wrap(err, "could not save render session")
 	}
 
 	t, err := r.templateSet.FromCache(name)
 	if err != nil {
-		r.Error(w, req, err)
-		return
+		return errors.Wrapf(err, "could not get template %s", name)
 	}
 	err = t.ExecuteWriter(pongo2.Context(ctx), w)
 	if err != nil {
+		return errors.Wrapf(err, "could not execute template %s", name)
+	}
+
+	return nil
+}
+
+func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string, ctx Context) {
+	err := r.renderTemplate(w, req, name, ctx)
+	if err != nil {
 		r.Error(w, req, err)
-		return
 	}
 }
 
@@ -182,7 +187,8 @@ func (r *Render) Error(w http.ResponseWriter, req *http.Request, err error) {
 	}
 
 	w.WriteHeader(http.StatusInternalServerError)
-	r.Template(w, req, "error.html", Context{
+	// do not handle error, showing error template is best effort
+	r.renderTemplate(w, req, "error.html", Context{
 		"title": "Server Error",
 		"msg":   msg,
 	})
