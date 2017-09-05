@@ -1,7 +1,6 @@
 package s3storage
 
 import (
-	"context"
 	"io"
 	"time"
 
@@ -21,12 +20,6 @@ type S3Storage struct {
 }
 
 func New(awsSession *session.Session, bucket string, signedUrls bool) (*S3Storage, error) {
-	region, err := s3manager.GetBucketRegion(context.Background(), awsSession, bucket, "us-east-1")
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not locate bucket %s region", bucket)
-	}
-	awsSession = awsSession.Copy(aws.NewConfig().WithRegion(region))
-
 	s := &S3Storage{
 		bucket:     bucket,
 		uploader:   s3manager.NewUploader(awsSession),
