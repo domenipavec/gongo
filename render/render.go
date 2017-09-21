@@ -166,6 +166,30 @@ func (r *Render) Template(w http.ResponseWriter, req *http.Request, name string,
 	}
 }
 
+func (r *Render) NotFound(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
+	r.Template(w, req, "error.html", Context{
+		"title": "Not Found",
+		"msg":   "This is not the web page you are looking for.",
+	})
+}
+
+func (r *Render) MethodNotAllowed(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusMethodNotAllowed)
+	r.Template(w, req, "error.html", Context{
+		"title": "Method Not Allowed",
+		"msg":   "Your position's correct, except... not this method.",
+	})
+}
+
+func (r *Render) Forbidden(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusForbidden)
+	r.Template(w, req, "error.html", Context{
+		"title": "Forbidden",
+		"msg":   "The Force is not strong with you.",
+	})
+}
+
 func (r *Render) Error(w http.ResponseWriter, req *http.Request, err error) {
 	msg := err.Error()
 
