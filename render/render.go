@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -153,7 +154,10 @@ func (r *Render) renderTemplate(w http.ResponseWriter, req *http.Request, name s
 	}
 	err = t.ExecuteWriter(pongo2.Context(ctx), w)
 	if err != nil {
-		return errors.Wrapf(err, "could not execute template %s", name)
+		// Do not log network errors (there were a lot of write on closed socket errors)
+		if _, ok := err.(*net.OpError); !ok {
+			return errors.Wrapf(err, "could not execute template %s", name)
+		}
 	}
 
 	return nil
