@@ -53,13 +53,18 @@ func (f *Files) Resources() []interface{} {
 }
 
 func (f *Files) newFile(input io.Reader, name, description string) (File, error) {
+	uuid, err := uuid.NewV4()
+	if err != nil {
+		return File{}, errors.Wrap(err, "could not generate uuid for file")
+	}
+
 	file := File{
-		ID:          uuid.NewV4(),
+		ID:          uuid,
 		Name:        name,
 		Description: description,
 	}
 
-	err := f.storage.Save(file.ID.String(), input)
+	err = f.storage.Save(file.ID.String(), input)
 	if err != nil {
 		return file, errors.Wrap(err, "could not save file to storage")
 	}
@@ -91,7 +96,9 @@ func (f *Files) NewImage(input ImageFile, name, description string) (Image, erro
 	img.Width = cfg.Width
 	img.Height = cfg.Height
 
-	input.Seek(0, io.SeekStart)
+	if _, err := input.Seek(0, io.SeekStart); err != nil {
+		return img, errors.Wrap(err, "could not seek to start")
+	}
 
 	if x, err := exif.Decode(input); err == nil {
 		exifData, err := x.MarshalJSON()
@@ -101,7 +108,9 @@ func (f *Files) NewImage(input ImageFile, name, description string) (Image, erro
 		img.ExifJSON = string(exifData)
 	}
 
-	input.Seek(0, io.SeekStart)
+	if _, err := input.Seek(0, io.SeekStart); err != nil {
+		return img, errors.Wrap(err, "could not seek to start")
+	}
 
 	file, err := f.newFile(input, name, description)
 	if err != nil {
